@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>배드민턴 대표 선발전</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a; --surface: #111827; --surface2: #1a2235;
+    --accent: #00e5ff; --accent2: #ff4d6d; --admin: #f59e0b;
+    --gold: #ffd700; --silver: #c0c0c0; --bronze: #cd7f32;
+    --text: #e8eaf6; --muted: #6b7a9d; --win: #00c896; --lose: #ff4d6d;
+    --border: rgba(0,229,255,0.12);
+    --safe-bottom: env(safe-area-inset-bottom,0px); --safe-top: env(safe-area-inset-top,0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html,body { height: 100%; overscroll-behavior: none; }
+  body { background: var(--bg); color: var(--text); font-family: 'Noto Sans KR',sans-serif;
+    min-height: 100vh; min-height: -webkit-fill-available; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+  body::before { content:''; position:fixed; inset:0;
+    background-image: linear-gradient(rgba(0,229,255,.02) 1px,transparent 1px), linear-gradient(90deg,rgba(0,229,255,.02) 1px,transparent 1px);
+    background-size: 36px 36px; pointer-events: none; z-index: 0; }
+
+  .app { position:relative; z-index:1; display:flex; flex-direction:column;
+    min-height:100vh; min-height:-webkit-fill-available; padding-top:var(--safe-top); }
+
+  /* Header */
+  .app-header { padding:18px 16px 12px; text-align:center; flex-shrink:0; }
+  .badge { display:inline-block; background:linear-gradient(135deg,var(--accent),#0099cc); color:#000;
+    font-size:9px; font-weight:700; letter-spacing:2.5px; padding:3px 10px; border-radius:2px; margin-bottom:7px; }
+  .app-header h1 { font-family:'Black Han Sans',sans-serif; font-size:24px; line-height:1.1;
+    background:linear-gradient(135deg,#fff 30%,var(--accent)); -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:3px; }
+  .app-header p { color:var(--muted); font-size:11px; letter-spacing:.5px; }
+  .header-row { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:8px; }
+
+  /* Sync status */
+  .sync-status { font-size:10px; color:var(--muted); display:flex; align-items:center; gap:4px; }
+  .sync-dot { width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+  .sync-dot.ok { background:var(--win); }
+  .sync-dot.loading { background:var(--accent); animation:pulse 1s infinite; }
+  .sync-dot.error { background:var(--lose); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* Admin pill */
+  .admin-pill { display:inline-flex; align-items:center; gap:5px; padding:4px 12px; border-radius:20px;
+    font-size:11px; font-weight:700; border:1px solid; cursor:pointer; transition:all .2s; }
+  .admin-pill.viewer { background:rgba(107,122,157,.12); color:var(--muted); border-color:rgba(107,122,157,.25); }
+  .admin-pill.admin { background:rgba(245,158,11,.12); color:var(--admin); border-color:rgba(245,158,11,.35);
+    animation:pulseAdmin 2.5s ease-in-out infinite; }
+  @keyframes pulseAdmin { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0)} 50%{box-shadow:0 0 0 4px rgba(245,158,11,.12)} }
+  .admin-dot { width:7px; height:7px; border-radius:50%; }
+  .viewer .admin-dot { background:var(--muted); } .admin .admin-dot { background:var(--admin); }
+
+  /* Content */
+  .content { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 12px calc(70px + var(--safe-bottom)); }
+  .section { display:none; }
+  .section.active { display:block; animation:fadeUp .22s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* Round nav */
+  .round-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; margin:0 -12px; padding:0 12px 10px; }
+  .round-scroll::-webkit-scrollbar { display:none; }
+  .round-nav { display:flex; gap:6px; width:max-content; }
+  .round-btn { height:36px; padding:0 14px; border:1px solid var(--border); background:var(--surface);
+    color:var(--muted); font-family:'Noto Sans KR',sans-serif; font-size:12px; font-weight:600;
+    cursor:pointer; border-radius:20px; white-space:nowrap; transition:all .18s; }
+  .round-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(0,229,255,.1); }
+  .round-btn.done { border-color:var(--win); color:var(--win); background:rgba(0,200,150,.08); }
+
+  /* Round info */
+  .round-info { display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:10px; padding:10px 14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; }
+  .round-info .rtitle { font-family:'Black Han Sans',sans-serif; font-size:15px; color:var(--accent); }
+  .round-info .rprog { font-size:11px; color:var(--muted); }
+
+  /* Match cards */
+  .matches { display:flex; flex-direction:column; gap:8px; }
+  .match-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; transition:border-color .2s,transform .1s; }
+  .match-card.bye-card { border-style:dashed; opacity:.55; }
+  .match-card.completed { border-color:rgba(0,200,150,.35); }
+  .match-card.clickable:active { transform:scale(.99); }
+  .match-inner { display:flex; align-items:center; min-height:64px; cursor:default; }
+  .match-inner.clickable { cursor:pointer; }
+  .player-side { flex:1; display:flex; align-items:center; padding:12px 10px; gap:8px; min-width:0; }
+  .player-side.right { justify-content:flex-end; flex-direction:row-reverse; }
+  .player-avatar { width:34px; height:34px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:700; background:var(--surface2); border:2px solid var(--border); color:var(--muted); }
+  .player-side.winner .player-avatar { border-color:var(--win); background:rgba(0,200,150,.14); color:var(--win); }
+  .player-name { font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  .player-side.winner .player-name { color:var(--win); }
+  .player-side.loser .player-name { color:var(--muted); }
+  .score-area { display:flex; align-items:center; gap:4px; flex-shrink:0; padding:0 6px; }
+  .score-box { width:44px; height:44px; background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+    display:flex; align-items:center; justify-content:center; font-family:'Black Han Sans',sans-serif; font-size:22px; color:var(--text); }
+  .score-box.winner-score { color:var(--win); border-color:var(--win); background:rgba(0,200,150,.1); }
+  .score-box.loser-score { color:var(--muted); }
+  .score-sep { font-size:12px; color:var(--muted); font-weight:700; }
+  .edit-hint { position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:16px; opacity:.5; pointer-events:none; }
+  .match-card-wrap { position:relative; }
+  .bye-content { padding:14px 16px; font-size:13px; color:var(--muted); }
+  .bye-content strong { color:var(--text); }
+
+  /* Viewer banner */
+  .viewer-banner { display:none; align-items:center; justify-content:center; gap:6px;
+    margin-bottom:10px; padding:10px 14px; background:rgba(107,122,157,.08);
+    border:1px dashed rgba(107,122,157,.25); border-radius:10px; font-size:12px; color:var(--muted); }
+  .viewer-banner.show { display:flex; }
+
+  /* Bottom nav */
+  .bottom-nav { position:fixed; bottom:0; left:0; right:0; z-index:50;
+    background:rgba(17,24,39,.96); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border-top:1px solid var(--border); display:flex; padding-bottom:var(--safe-bottom); }
+  .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 0 8px;
+    border:none; background:transparent; color:var(--muted); font-family:'Noto Sans KR',sans-serif;
+    font-size:10px; font-weight:500; cursor:pointer; transition:color .2s; }
+  .nav-icon { font-size:20px; line-height:1; }
+  .nav-btn.active { color:var(--accent); }
+  .nav-btn.active .nav-icon { filter:drop-shadow(0 0 6px var(--accent)); }
+
+  /* Login overlay */
+  .login-overlay { display:none; position:fixed; inset:0; z-index:300;
+    background:rgba(0,0,0,.8); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    align-items:flex-end; justify-content:center; }
+  .login-overlay.open { display:flex; }
+  .login-sheet { background:var(--surface); border:1px solid rgba(245,158,11,.3); border-radius:24px 24px 0 0;
+    width:100%; max-width:480px; padding:0 24px calc(28px + var(--safe-bottom));
+    box-shadow:0 -20px 60px rgba(0,0,0,.5); animation:slideUp .28s cubic-bezier(.34,1.2,.64,1); }
+  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .sheet-handle { width:36px; height:4px; border-radius:2px; background:var(--muted); margin:12px auto 20px; opacity:.4; }
+  .login-icon { font-size:36px; text-align:center; margin-bottom:8px; }
+  .login-title { font-family:'Black Han Sans',sans-serif; font-size:20px; color:var(--admin); text-align:center; margin-bottom:4px; }
+  .login-sub { font-size:12px; color:var(--muted); text-align:center; margin-bottom:22px; }
+  .pw-field { width:100%; background:var(--surface2); border:2px solid rgba(245,158,11,.25);
+    border-radius:12px; color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:18px;
+    text-align:center; padding:14px; outline:none; letter-spacing:4px; margin-bottom:10px; transition:border-color .15s; }
+  .pw-field:focus { border-color:var(--admin); }
+  .pw-field.error { border-color:var(--lose); animation:shake .35s ease; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+  .login-error { font-size:12px; color:var(--lose); text-align:center; min-height:18px; margin-bottom:14px; }
+  .login-btns { display:flex; gap:8px; }
+
+  /* Score sheet */
+  .sheet-overlay { display:none; position:fixed; inset:0; z-index:200;
+    background:rgba(0,0,0,.6); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); align-items:flex-end; justify-content:center; }
+  .sheet-overlay.open { display:flex; }
+  .sheet { background:var(--surface); border:1px solid var(--border); border-radius:24px 24px 0 0;
+    width:100%; max-width:480px; padding:0 20px calc(20px + var(--safe-bottom));
+    box-shadow:0 -20px 60px rgba(0,0,0,.4); animation:slideUp .28s cubic-bezier(.34,1.2,.64,1); }
+  .sheet-title { font-family:'Black Han Sans',sans-serif; font-size:17px; color:var(--accent); margin-bottom:4px; }
+  .sheet-sub { font-size:12px; color:var(--muted); margin-bottom:20px; }
+  .score-row { display:flex; align-items:flex-start; gap:10px; margin-bottom:14px; }
+  .score-block { flex:1; min-width:0; }
+  .score-block .pname { font-size:13px; font-weight:700; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .score-block .pname.right { text-align:right; }
+  .score-field { width:100%; background:var(--surface2); border:2px solid var(--border); border-radius:12px;
+    color:var(--text); font-family:'Black Han Sans',sans-serif; font-size:40px; text-align:center;
+    padding:12px 4px; outline:none; transition:border-color .15s,background .15s; -moz-appearance:textfield; }
+  .score-field::-webkit-inner-spin-button,.score-field::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+  .score-field:focus { border-color:var(--accent); background:rgba(0,229,255,.05); }
+  .score-field.valid-win { border-color:var(--win); color:var(--win); background:rgba(0,200,150,.07); }
+  .score-field.valid-lose { border-color:rgba(255,77,109,.35); color:var(--muted); }
+  .vs-mid { padding-top:50px; font-size:13px; font-weight:700; color:var(--muted); flex-shrink:0; letter-spacing:1px; }
+  .result-note { text-align:center; font-size:12px; font-weight:600; min-height:18px; margin-bottom:16px; color:var(--accent2); }
+  .sheet-btns { display:flex; gap:8px; }
+
+  /* Buttons */
+  .btn { flex:1; height:50px; border-radius:12px; border:none; font-family:'Noto Sans KR',sans-serif;
+    font-size:15px; font-weight:700; cursor:pointer; transition:all .15s; display:flex; align-items:center; justify-content:center; touch-action:manipulation; }
+  .btn-admin { background:linear-gradient(135deg,var(--admin),#d97706); color:#000; }
+  .btn-admin:active { opacity:.82; transform:scale(.98); }
+  .btn-secondary { background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
+  .btn-secondary:active { opacity:.8; }
+  .btn-primary { background:linear-gradient(135deg,var(--accent),#0099cc); color:#000; }
+  .btn-primary:active { opacity:.82; transform:scale(.98); }
+  .btn-danger { background:rgba(255,77,109,.12); color:var(--lose); border:1px solid rgba(255,77,109,.3); flex:0 0 auto; width:80px; font-size:13px; }
+  .btn-danger:active { background:rgba(255,77,109,.22); }
+
+  /* Logout sheet */
+  .logout-sheet { background:var(--surface); border:1px solid var(--border); border-radius:24px 24px 0 0;
+    width:100%; max-width:480px; padding:0 24px calc(28px + var(--safe-bottom));
+    box-shadow:0 -20px 60px rgba(0,0,0,.5); animation:slideUp .28s cubic-bezier(.34,1.2,.64,1); }
+
+  /* Summary */
+  .summary-bar { display:flex; gap:8px; margin-bottom:16px; }
+  .summary-chip { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 0; flex:1; text-align:center; }
+  .summary-chip .sv { font-family:'Black Han Sans',sans-serif; font-size:22px; color:var(--accent); line-height:1.1; }
+  .summary-chip .sl { font-size:10px; color:var(--muted); margin-top:2px; }
+
+  /* Standings */
+  .standing-list { display:flex; flex-direction:column; gap:7px; }
+  .standing-card { background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:12px 14px; display:flex; align-items:center; gap:12px; }
+  .standing-card.rank-1 { border-color:rgba(255,215,0,.5); background:rgba(255,215,0,.07); }
+  .standing-card.rank-2 { border-color:rgba(192,192,192,.45); background:rgba(192,192,192,.06); }
+  .standing-card.rank-3 { border-color:rgba(205,127,50,.45); background:rgba(205,127,50,.06); }
+  .rank-badge { width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Black Han Sans',sans-serif; font-size:14px; }
+  .rank-badge.r1 { background:rgba(255,215,0,.25); color:var(--gold); }
+  .rank-badge.r2 { background:rgba(192,192,192,.25); color:var(--silver); }
+  .rank-badge.r3 { background:rgba(205,127,50,.25); color:var(--bronze); }
+  .rank-badge.rn { background:var(--surface2); color:var(--muted); }
+  .standing-info { flex:1; min-width:0; }
+  .standing-name { font-size:15px; font-weight:700; margin-bottom:5px; }
+  .standing-card.rank-1 .standing-name { color:var(--gold); }
+  .standing-card.rank-2 .standing-name { color:var(--silver); }
+  .standing-card.rank-3 .standing-name { color:var(--bronze); }
+  .standing-bar-wrap { height:4px; background:var(--surface2); border-radius:2px; overflow:hidden; }
+  .standing-bar { height:100%; background:linear-gradient(90deg,var(--win),var(--accent)); border-radius:2px; transition:width .5s ease; }
+  .standing-stats { display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
+  .stat-wl { font-family:'Black Han Sans',sans-serif; font-size:15px; }
+  .stat-wl .w { color:var(--win); } .stat-wl .sep { color:var(--muted); margin:0 1px; font-size:11px; } .stat-wl .l { color:var(--lose); }
+  .stat-scored { font-size:10px; color:var(--muted); }
+  .stat-scored .gs { color:var(--win); font-weight:600; } .stat-scored .gc { color:var(--lose); font-weight:600; }
+  .stat-diff { font-size:12px; font-weight:700; }
+  .stat-diff.pos { color:var(--win); } .stat-diff.neg { color:var(--lose); } .stat-diff.zero { color:var(--muted); }
+
+  /* Loading skeleton */
+  .skeleton { background:linear-gradient(90deg,var(--surface) 25%,var(--surface2) 50%,var(--surface) 75%);
+    background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .skel-card { height:64px; margin-bottom:8px; border-radius:14px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="app-header">
+    <div class="badge">SELECTION MATCH 2025</div>
+    <h1>배드민턴 대표 선발전</h1>
+    <p>풀리그 9라운드 · 15점 단세트</p>
+    <div class="header-row">
+      <div class="sync-status">
+        <div class="sync-dot" id="syncDot"></div>
+        <span id="syncText">연결 중...</span>
+      </div>
+      <button class="admin-pill viewer" id="adminPill" onclick="onAdminPillClick()">
+        <span class="admin-dot"></span>
+        <span id="adminPillText">뷰어 모드</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="section active" id="tab-rounds">
+      <div class="round-scroll"><div class="round-nav" id="roundNav"></div></div>
+      <div class="round-info">
+        <span class="rtitle" id="roundTitle">1라운드</span>
+        <span class="rprog" id="roundProg"></span>
+      </div>
+      <div class="viewer-banner" id="viewerBanner">🔒 점수 입력은 관리자 모드에서만 가능합니다</div>
+      <div class="matches" id="matchList">
+        <div class="skeleton skel-card"></div>
+        <div class="skeleton skel-card"></div>
+        <div class="skeleton skel-card"></div>
+        <div class="skeleton skel-card"></div>
+      </div>
+    </div>
+    <div class="section" id="tab-standings">
+      <div class="summary-bar" id="summaryBar"></div>
+      <div class="standing-list" id="standingList"></div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="navRounds" onclick="showTab('rounds')"><span class="nav-icon">🏸</span>대진표</button>
+    <button class="nav-btn" id="navStandings" onclick="showTab('standings')"><span class="nav-icon">🏆</span>순위표</button>
+  </nav>
+</div>
+
+<!-- Login -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-sheet">
+    <div class="sheet-handle"></div>
+    <div class="login-icon">🔐</div>
+    <div class="login-title">관리자 로그인</div>
+    <div class="login-sub">비밀번호를 입력하세요</div>
+    <input type="password" class="pw-field" id="pwField" placeholder="••••••" inputmode="numeric" oninput="onPwInput()" onkeydown="onPwKey(event)">
+    <div class="login-error" id="loginError"></div>
+    <div class="login-btns">
+      <button class="btn btn-secondary" onclick="closeLogin()">취소</button>
+      <button class="btn btn-admin" onclick="doLogin()">🔓 입장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Logout -->
+<div class="login-overlay" id="logoutOverlay">
+  <div class="logout-sheet">
+    <div class="sheet-handle"></div>
+    <div class="login-icon">🔓</div>
+    <div class="login-title" style="color:var(--muted)">관리자 모드 종료</div>
+    <div class="login-sub" style="margin-bottom:24px">뷰어로 전환할까요?</div>
+    <div class="login-btns">
+      <button class="btn btn-secondary" onclick="closeLogout()">취소</button>
+      <button class="btn btn-danger" style="flex:1;width:auto" onclick="doLogout()">종료하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Score Sheet -->
+<div class="sheet-overlay" id="sheetOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">📝 점수 입력</div>
+    <div class="sheet-sub" id="sheetLabel"></div>
+    <div class="score-row">
+      <div class="score-block">
+        <div class="pname" id="sheetP1"></div>
+        <input type="number" class="score-field" id="scoreInput1" min="0" max="99" placeholder="0" inputmode="numeric" oninput="onScoreInput()">
+      </div>
+      <div class="vs-mid">VS</div>
+      <div class="score-block">
+        <div class="pname right" id="sheetP2"></div>
+        <input type="number" class="score-field" id="scoreInput2" min="0" max="99" placeholder="0" inputmode="numeric" oninput="onScoreInput()">
+      </div>
+    </div>
+    <div class="result-note" id="resultNote"></div>
+    <div class="sheet-btns">
+      <button class="btn btn-secondary" onclick="closeSheet()">취소</button>
+      <button class="btn btn-danger" id="btnReset" onclick="resetMatch()" style="display:none">초기화</button>
+      <button class="btn btn-primary" id="btnSave" onclick="saveScore()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   ⚙️  설정 — 여기만 수정하면 됩니다
+══════════════════════════════════════════ */
+const ADMIN_PW = '5525';
+const NOTION_DB_ID = '6a234900-a4e3-4ec9-b8ef-4e5549d4d8c6'; // Notion 데이터 소스 ID
+const WIN_SCORE = 15;
+const AUTO_REFRESH_SEC = 30; // 뷰어 자동 새로고침 간격 (초)
+
+/* ══════════════════════════════════════════
+   경기 데이터 (라운드/대진표 고정)
+══════════════════════════════════════════ */
+const PLAYERS = ['박나겸','정윤서','이지민','유태은','이나경','권은우','이하니','곽지후','이소율'];
+const ROUNDS = [
+  { matches:[['박나겸','이소율'],['정윤서','곽지후'],['이지민','이하니'],['유태은','권은우']], bye:'이나경' },
+  { matches:[['박나겸','곽지후'],['이소율','이하니'],['정윤서','권은우'],['이지민','이나경']], bye:'유태은' },
+  { matches:[['박나겸','이하니'],['곽지후','권은우'],['이소율','이나경'],['정윤서','유태은']], bye:'이지민' },
+  { matches:[['박나겸','권은우'],['이하니','이나경'],['곽지후','유태은'],['이소율','이지민']], bye:'정윤서' },
+  { matches:[['박나겸','이나경'],['권은우','유태은'],['이하니','이지민'],['곽지후','정윤서']], bye:'이소율' },
+  { matches:[['박나겸','유태은'],['이나경','이지민'],['권은우','정윤서'],['이하니','이소율']], bye:'곽지후' },
+  { matches:[['박나겸','이지민'],['유태은','정윤서'],['이나경','이소율'],['권은우','곽지후']], bye:'이하니' },
+  { matches:[['박나겸','정윤서'],['이지민','이소율'],['유태은','곽지후'],['이나경','이하니']], bye:'권은우' },
+  { matches:[['박나겸','이하니'],['정윤서','이나경'],['이지민','권은우'],['유태은','이소율']], bye:'곽지후' },
+];
+
+/* ══════════════════════════════════════════
+   상태
+══════════════════════════════════════════ */
+// scores[ri][mi] = {s1, s2, pageId} or null
+let scores = ROUNDS.map(r => r.matches.map(() => null));
+let isAdmin = false;
+let currentRound = 0;
+let sheetData = null;
+let refreshTimer = null;
+let isSaving = false;
+
+/* ══════════════════════════════════════════
+   Notion API (Claude AI proxy)
+══════════════════════════════════════════ */
+async function notionFetch(prompt) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: `You are a Notion data assistant. You have access to the Notion MCP.
+The database collection ID is: ${NOTION_DB_ID}
+Always respond with ONLY valid JSON, no markdown, no explanation.`,
+      messages: [{ role: 'user', content: prompt }],
+      mcp_servers: [{ type: 'url', url: 'https://mcp.notion.com/mcp', name: 'notion' }]
+    })
+  });
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  const data = await res.json();
+  // Extract text from response
+  const textBlocks = data.content.filter(b => b.type === 'text');
+  const text = textBlocks.map(b => b.text).join('');
+  return text;
+}
+
+/* ══════════════════════════════════════════
+   Notion 데이터 로드
+══════════════════════════════════════════ */
+async function loadFromNotion() {
+  setSyncState('loading', '불러오는 중...');
+  try {
+    const prompt = `Query all pages from Notion collection ${NOTION_DB_ID}.
+For each page return: pageId, 경기ID, 라운드, 경기번호, 점수1, 점수2, 완료.
+Return ONLY a JSON array like:
+[{"pageId":"xxx","경기ID":"R1-M1","라운드":1,"경기번호":1,"점수1":null,"점수2":null,"완료":false}]`;
+
+    const raw = await notionFetch(prompt);
+    // Try to parse JSON from response
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('JSON not found in response');
+    const pages = JSON.parse(jsonMatch[0]);
+
+    // Reset scores
+    scores = ROUNDS.map(r => r.matches.map(() => null));
+
+    pages.forEach(page => {
+      const id = page['경기ID'] || '';
+      const m = id.match(/^R(\d+)-M(\d+)$/);
+      if (!m) return;
+      const ri = parseInt(m[1]) - 1, mi = parseInt(m[2]) - 1;
+      if (ri < 0 || ri >= ROUNDS.length) return;
+      if (mi < 0 || mi >= ROUNDS[ri].matches.length) return;
+      const s1 = page['점수1'], s2 = page['점수2'];
+      if (s1 !== null && s1 !== undefined && s2 !== null && s2 !== undefined) {
+        scores[ri][mi] = { s1: Number(s1), s2: Number(s2), pageId: page.pageId };
+      } else {
+        scores[ri][mi] = { s1: null, s2: null, pageId: page.pageId };
+      }
+    });
+
+    setSyncState('ok', `업데이트 ${timeStr()}`);
+    renderRoundNav(); renderMatches();
+    if (document.getElementById('tab-standings').classList.contains('active')) renderStandings();
+  } catch (e) {
+    console.error(e);
+    setSyncState('error', '로드 실패 — 재시도 중');
+    setTimeout(loadFromNotion, 8000);
+  }
+}
+
+async function saveToNotion(ri, mi, s1, s2) {
+  const pageId = scores[ri][mi]?.pageId;
+  if (!pageId) throw new Error('pageId not found');
+  const prompt = `Update Notion page with ID "${pageId}" in collection ${NOTION_DB_ID}.
+Set these properties:
+- 점수1: ${s1}
+- 점수2: ${s2}
+- 완료: true
+Respond with ONLY: {"ok": true}`;
+  await notionFetch(prompt);
+}
+
+async function clearFromNotion(ri, mi) {
+  const pageId = scores[ri][mi]?.pageId;
+  if (!pageId) throw new Error('pageId not found');
+  const prompt = `Update Notion page with ID "${pageId}" in collection ${NOTION_DB_ID}.
+Set these properties:
+- 점수1: null
+- 점수2: null
+- 완료: false
+Respond with ONLY: {"ok": true}`;
+  await notionFetch(prompt);
+}
+
+/* ══════════════════════════════════════════
+   UI helpers
+══════════════════════════════════════════ */
+function setSyncState(state, text) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  dot.className = 'sync-dot ' + state;
+  txt.textContent = text;
+}
+function timeStr() {
+  const d = new Date();
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function initial(n) { return n.charAt(0); }
+function isValidScore(s1, s2) {
+  if (s1 === s2) return false;
+  const max = Math.max(s1,s2), min = Math.min(s1,s2);
+  if (max < WIN_SCORE) return false;
+  if (max === WIN_SCORE) return min <= WIN_SCORE - 2;
+  return (max - min) === 2;
+}
+function getWinner(s1, s2, p1, p2) { return s1>s2?p1:s2>s1?p2:null; }
+
+function hasScore(ri, mi) {
+  const s = scores[ri][mi];
+  return s && s.s1 !== null && s.s2 !== null;
+}
+
+/* ══════════════════════════════════════════
+   Admin
+══════════════════════════════════════════ */
+function applyAdminState() {
+  const pill = document.getElementById('adminPill');
+  const pillText = document.getElementById('adminPillText');
+  const banner = document.getElementById('viewerBanner');
+  if (isAdmin) {
+    pill.className = 'admin-pill admin'; pillText.textContent = '관리자 모드';
+    banner.classList.remove('show');
+    clearInterval(refreshTimer); // admin은 자동새로고침 없음
+  } else {
+    pill.className = 'admin-pill viewer'; pillText.textContent = '뷰어 모드';
+    banner.classList.add('show');
+    startAutoRefresh();
+  }
+  renderRoundNav(); renderMatches();
+}
+function onAdminPillClick() { isAdmin ? openLogout() : openLogin(); }
+
+function openLogin() {
+  document.getElementById('pwField').value = '';
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('pwField').className = 'pw-field';
+  document.getElementById('loginOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('pwField').focus(), 300);
+}
+function closeLogin() { document.getElementById('loginOverlay').classList.remove('open'); document.activeElement?.blur(); }
+function onPwInput() { document.getElementById('pwField').className = 'pw-field'; document.getElementById('loginError').textContent = ''; }
+function onPwKey(e) { if (e.key === 'Enter') doLogin(); }
+function doLogin() {
+  if (document.getElementById('pwField').value === ADMIN_PW) {
+    isAdmin = true; closeLogin(); applyAdminState();
+  } else {
+    const f = document.getElementById('pwField');
+    f.className = 'pw-field error'; document.getElementById('loginError').textContent = '비밀번호가 올바르지 않습니다';
+    f.value = ''; setTimeout(() => f.className = 'pw-field', 400);
+  }
+}
+function openLogout() { document.getElementById('logoutOverlay').classList.add('open'); }
+function closeLogout() { document.getElementById('logoutOverlay').classList.remove('open'); }
+function doLogout() { isAdmin = false; closeLogout(); applyAdminState(); }
+
+/* ══════════════════════════════════════════
+   Auto refresh (뷰어 전용)
+══════════════════════════════════════════ */
+function startAutoRefresh() {
+  clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => {
+    if (!isAdmin) loadFromNotion();
+  }, AUTO_REFRESH_SEC * 1000);
+}
+
+/* ══════════════════════════════════════════
+   Render
+══════════════════════════════════════════ */
+function renderRoundNav() {
+  const nav = document.getElementById('roundNav');
+  nav.innerHTML = '';
+  ROUNDS.forEach((round, ri) => {
+    const done = round.matches.every((_,mi) => hasScore(ri,mi));
+    const btn = document.createElement('button');
+    btn.className = 'round-btn' + (ri===currentRound?' active':'') + (done?' done':'');
+    btn.textContent = `${ri+1}라운드` + (done?' ✓':'');
+    btn.onclick = () => { currentRound=ri; renderRoundNav(); renderMatches(); };
+    nav.appendChild(btn);
+  });
+}
+
+function renderMatches() {
+  const round = ROUNDS[currentRound];
+  const completed = round.matches.filter((_,mi) => hasScore(currentRound,mi)).length;
+  document.getElementById('roundTitle').textContent = `${currentRound+1}라운드`;
+  document.getElementById('roundProg').textContent = `${completed}/${round.matches.length} 완료`;
+
+  const list = document.getElementById('matchList');
+  list.innerHTML = '';
+
+  round.matches.forEach(([p1,p2], mi) => {
+    const s = scores[currentRound][mi];
+    const scored = hasScore(currentRound, mi);
+    const winner = scored ? getWinner(s.s1, s.s2, p1, p2) : null;
+    const p1win = winner===p1, p2win = winner===p2;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'match-card-wrap';
+    const card = document.createElement('div');
+    card.className = 'match-card' + (scored?' completed':'') + (isAdmin?' clickable':'');
+    const clickAttr = isAdmin ? `class="match-inner clickable" onclick="openSheet(${currentRound},${mi})"` : `class="match-inner"`;
+    card.innerHTML = `
+      <div ${clickAttr}>
+        <div class="player-side left ${p1win?'winner':scored?'loser':''}">
+          <div class="player-avatar">${initial(p1)}</div>
+          <div class="player-name">${p1}</div>
+        </div>
+        <div class="score-area">
+          <div class="score-box ${p1win?'winner-score':scored?'loser-score':''}">${scored?s.s1:'–'}</div>
+          <div class="score-sep">:</div>
+          <div class="score-box ${p2win?'winner-score':scored?'loser-score':''}">${scored?s.s2:'–'}</div>
+        </div>
+        <div class="player-side right ${p2win?'winner':scored?'loser':''}">
+          <div class="player-name">${p2}</div>
+          <div class="player-avatar">${initial(p2)}</div>
+        </div>
+        ${isAdmin?'<span class="edit-hint">✏️</span>':''}
+      </div>`;
+    wrap.appendChild(card);
+    list.appendChild(wrap);
+  });
+
+  const byeCard = document.createElement('div');
+  byeCard.className = 'match-card bye-card';
+  byeCard.innerHTML = `<div class="bye-content">🛌 휴식: <strong>${round.bye}</strong></div>`;
+  list.appendChild(byeCard);
+}
+
+/* ══════════════════════════════════════════
+   Score sheet
+══════════════════════════════════════════ */
+function openSheet(ri, mi) {
+  if (!isAdmin) return;
+  const [p1,p2] = ROUNDS[ri].matches[mi];
+  const s = scores[ri][mi];
+  sheetData = { ri, mi };
+  document.getElementById('sheetLabel').textContent = `${ri+1}라운드 · ${mi+1}번 경기`;
+  document.getElementById('sheetP1').textContent = p1;
+  document.getElementById('sheetP2').textContent = p2;
+  const f1 = document.getElementById('scoreInput1'), f2 = document.getElementById('scoreInput2');
+  f1.value = (s && s.s1 !== null) ? s.s1 : '';
+  f2.value = (s && s.s2 !== null) ? s.s2 : '';
+  f1.className = 'score-field'; f2.className = 'score-field';
+  document.getElementById('resultNote').textContent = '';
+  document.getElementById('btnReset').style.display = (s && s.s1 !== null) ? 'flex' : 'none';
+  document.getElementById('btnSave').textContent = '저장';
+  document.getElementById('btnSave').disabled = false;
+  document.getElementById('sheetOverlay').classList.add('open');
+  setTimeout(() => f1.focus(), 300);
+}
+function closeSheet() {
+  document.getElementById('sheetOverlay').classList.remove('open');
+  sheetData = null; isSaving = false;
+  document.activeElement?.blur();
+}
+function onScoreInput() {
+  const s1 = parseInt(document.getElementById('scoreInput1').value);
+  const s2 = parseInt(document.getElementById('scoreInput2').value);
+  const note = document.getElementById('resultNote');
+  const f1 = document.getElementById('scoreInput1'), f2 = document.getElementById('scoreInput2');
+  f1.className = 'score-field'; f2.className = 'score-field';
+  if (isNaN(s1)||isNaN(s2)) { note.textContent=''; return; }
+  if (!isValidScore(s1,s2)) {
+    note.textContent='⚠️ 15점 단세트 · 듀스 시 2점차 승리'; note.style.color='var(--accent2)';
+  } else {
+    const [p1,p2] = ROUNDS[sheetData.ri].matches[sheetData.mi];
+    note.textContent=`✅ ${s1>s2?p1:p2} 승리`; note.style.color='var(--win)';
+    f1.className='score-field '+(s1>s2?'valid-win':'valid-lose');
+    f2.className='score-field '+(s2>s1?'valid-win':'valid-lose');
+  }
+}
+
+async function saveScore() {
+  if (!sheetData||!isAdmin||isSaving) return;
+  const s1 = parseInt(document.getElementById('scoreInput1').value);
+  const s2 = parseInt(document.getElementById('scoreInput2').value);
+  if (isNaN(s1)||isNaN(s2)) { alert('두 선수의 점수를 모두 입력해주세요.'); return; }
+  if (!isValidScore(s1,s2)) { alert('유효하지 않은 점수입니다.\n15점 단세트 · 듀스 시 2점차'); return; }
+
+  isSaving = true;
+  const btn = document.getElementById('btnSave');
+  btn.textContent = '저장 중...'; btn.disabled = true;
+  setSyncState('loading', '저장 중...');
+
+  try {
+    await saveToNotion(sheetData.ri, sheetData.mi, s1, s2);
+    scores[sheetData.ri][sheetData.mi] = { ...scores[sheetData.ri][sheetData.mi], s1, s2 };
+    setSyncState('ok', `저장 완료 ${timeStr()}`);
+    closeSheet(); renderRoundNav(); renderMatches();
+    if (document.getElementById('tab-standings').classList.contains('active')) renderStandings();
+  } catch(e) {
+    console.error(e);
+    setSyncState('error', '저장 실패');
+    btn.textContent = '저장'; btn.disabled = false; isSaving = false;
+    alert('저장에 실패했습니다. 다시 시도해주세요.');
+  }
+}
+
+async function resetMatch() {
+  if (!sheetData||!isAdmin) return;
+  if (!confirm('이 경기 점수를 초기화할까요?')) return;
+  setSyncState('loading', '초기화 중...');
+  try {
+    await clearFromNotion(sheetData.ri, sheetData.mi);
+    scores[sheetData.ri][sheetData.mi] = { ...scores[sheetData.ri][sheetData.mi], s1: null, s2: null };
+    setSyncState('ok', `초기화 완료 ${timeStr()}`);
+    closeSheet(); renderRoundNav(); renderMatches();
+    if (document.getElementById('tab-standings').classList.contains('active')) renderStandings();
+  } catch(e) {
+    setSyncState('error', '초기화 실패');
+    alert('초기화에 실패했습니다.');
+  }
+}
+
+/* ══════════════════════════════════════════
+   Standings
+══════════════════════════════════════════ */
+function computeStandings() {
+  const stats = {};
+  PLAYERS.forEach(p => stats[p]={wins:0,losses:0,scored:0,conceded:0,played:0});
+  ROUNDS.forEach((round,ri) => {
+    round.matches.forEach(([p1,p2],mi) => {
+      if (!hasScore(ri,mi)) return;
+      const s = scores[ri][mi];
+      stats[p1].scored+=s.s1; stats[p1].conceded+=s.s2; stats[p1].played++;
+      stats[p2].scored+=s.s2; stats[p2].conceded+=s.s1; stats[p2].played++;
+      if(s.s1>s.s2){stats[p1].wins++;stats[p2].losses++;}
+      else{stats[p2].wins++;stats[p1].losses++;}
+    });
+  });
+  return stats;
+}
+function renderStandings() {
+  const stats = computeStandings();
+  const totalM = ROUNDS.reduce((a,r)=>a+r.matches.length,0);
+  const playedM = ROUNDS.reduce((a,r,ri)=>a+r.matches.filter((_,mi)=>hasScore(ri,mi)).length,0);
+  const doneR = ROUNDS.filter((r,ri)=>r.matches.every((_,mi)=>hasScore(ri,mi))).length;
+  document.getElementById('summaryBar').innerHTML=`
+    <div class="summary-chip"><div class="sv">${doneR}/${ROUNDS.length}</div><div class="sl">완료 라운드</div></div>
+    <div class="summary-chip"><div class="sv">${playedM}/${totalM}</div><div class="sl">완료 경기</div></div>
+    <div class="summary-chip"><div class="sv">${PLAYERS.length}</div><div class="sl">참가 선수</div></div>`;
+  const sorted = PLAYERS.slice().sort((a,b)=>{
+    const sa=stats[a],sb=stats[b];
+    if(sb.wins!==sa.wins) return sb.wins-sa.wins;
+    return (sb.scored-sb.conceded)-(sa.scored-sa.conceded);
+  });
+  const maxWins = Math.max(...sorted.map(p=>stats[p].wins),1);
+  const list = document.getElementById('standingList');
+  list.innerHTML='';
+  sorted.forEach((p,idx)=>{
+    const st=stats[p], rank=idx+1;
+    const diff=st.scored-st.conceded;
+    const rc=rank<=3?`rank-${rank}`:'';
+    const bc=rank===1?'r1':rank===2?'r2':rank===3?'r3':'rn';
+    const bw=Math.round(st.wins/maxWins*100);
+    const dc=diff>0?'pos':diff<0?'neg':'zero';
+    const card=document.createElement('div');
+    card.className='standing-card'+(rc?' '+rc:'');
+    card.innerHTML=`
+      <div class="rank-badge ${bc}">${rank}</div>
+      <div class="standing-info">
+        <div class="standing-name">${p}</div>
+        <div class="standing-bar-wrap"><div class="standing-bar" style="width:${bw}%"></div></div>
+      </div>
+      <div class="standing-stats">
+        <div class="stat-wl"><span class="w">${st.wins}승</span><span class="sep"> / </span><span class="l">${st.losses}패</span></div>
+        <div class="stat-scored"><span class="gs">${st.scored}</span> 득 · <span class="gc">${st.conceded}</span> 실</div>
+        <div class="stat-diff ${dc}">${st.played>0?(diff>0?'▲ ':'▼ ')+Math.abs(diff)+'점':'–'}</div>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function showTab(id) {
+  ['rounds','standings'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active',t===id);
+    document.getElementById('nav'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('active',t===id);
+  });
+  if(id==='standings') renderStandings();
+  document.querySelector('.content').scrollTop=0;
+}
+
+/* ══════════════════════════════════════════
+   Events
+══════════════════════════════════════════ */
+document.getElementById('sheetOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeSheet();});
+document.getElementById('loginOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLogin();});
+document.getElementById('logoutOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLogout();});
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('sheetOverlay').classList.contains('open')){
+    if(e.key==='Enter') saveScore(); if(e.key==='Escape') closeSheet();
+  }
+  if(document.getElementById('loginOverlay').classList.contains('open')&&e.key==='Escape') closeLogin();
+});
+
+/* ══════════════════════════════════════════
+   Init
+══════════════════════════════════════════ */
+applyAdminState();
+renderRoundNav();
+loadFromNotion();
+</script>
+</body>
+</html>
